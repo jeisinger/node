@@ -247,7 +247,12 @@ node::DebugOptions debug_options;
 static struct {
 #if NODE_USE_V8_PLATFORM
   void Initialize(int thread_pool_size) {
-    platform_ = v8::platform::CreateDefaultPlatform(thread_pool_size);
+    tracing_agent_ =
+        trace_enabled ? new tracing::Agent(trace_enabled_categories) : nullptr;
+    platform_ = v8::platform::CreateDefaultPlatform(
+        thread_pool_size, v8::platform::IdleTaskSupport::kDisabled,
+        v8::platform::InProcessStackDumping::kEnabled,
+        trace_enabled ? tracing_controller_->GetTracingController() : nullptr);
     V8::InitializePlatform(platform_);
     tracing::TraceEventHelper::SetCurrentPlatform(platform_);
   }
@@ -276,9 +281,7 @@ static struct {
 #endif  // HAVE_INSPECTOR
 
   void StartTracingAgent() {
-    CHECK(tracing_agent_ == nullptr);
-    tracing_agent_ = new tracing::Agent();
-    tracing_agent_->Start(platform_, trace_enabled_categories);
+    tracing_agent_->Start();
   }
 
   void StopTracingAgent() {

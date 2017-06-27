@@ -12,11 +12,7 @@ namespace tracing {
 using v8::platform::tracing::TraceConfig;
 using std::string;
 
-Agent::Agent() {}
-
-void Agent::Start(v8::Platform* platform, const string& enabled_categories) {
-  platform_ = platform;
-
+Agent::Agent(const string& enabled_categories) {
   int err = uv_loop_init(&tracing_loop_);
   CHECK_EQ(err, 0);
 
@@ -46,23 +42,26 @@ void Agent::Start(v8::Platform* platform, const string& enabled_categories) {
   CHECK_EQ(err, 0);
 
   tracing_controller_->Initialize(trace_buffer);
+}
+
+void Agent::Start() {
   tracing_controller_->StartTracing(trace_config);
-  v8::platform::SetTracingController(platform, tracing_controller_);
+  started_ = true;
 }
 
 void Agent::Stop() {
-  if (!IsStarted()) {
+  if (!started_) {
     return;
   }
   // Perform final Flush on TraceBuffer. We don't want the tracing controller
   // to flush the buffer again on destruction of the V8::Platform.
   tracing_controller_->StopTracing();
   tracing_controller_->Initialize(nullptr);
-  tracing_controller_ = nullptr;
+
+  started_ = false;
 
   // Thread should finish when the tracing loop is stopped.
   uv_thread_join(&thread_);
-  v8::platform::SetTracingController(platform_, nullptr);
 }
 
 // static
